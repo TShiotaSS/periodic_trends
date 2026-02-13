@@ -70,8 +70,33 @@ test = plotter(df, "Element", "Ionization Energy", print_data=True, cmap=cm.summ
 
 ![plot4](example_images/plot4.png)
 
-## Troubleshooting
+## XYZ Utility (Element Count)
 
+This fork includes `xyz_to_periodic_table.py`, a utility script that reads `.xyz` files with `ase`, counts elements, and visualizes the counts with `periodic_trends`.
+
+Basic examples:
+
+```bash
+python xyz_to_periodic_table.py input.xyz output.png --dpi 300
+python xyz_to_periodic_table.py input.xyz output.html
+python xyz_to_periodic_table.py input.xyz output.png --frame 0 --dpi 600
+```
+
+Arguments:
+
+- `xyz`: input `.xyz` file path
+- `output`: output path (`.png` or `.html`)
+- `--frame`: frame index (`0`, `1`, ...) or `all` (default)
+- `--dpi`: PNG DPI (default: `300`)
+- `--title`: plot title (default: `Element Counts`)
+- `--save-html`: optional additional HTML output path
+
+Notes:
+
+- PNG export uses bokeh image export and requires `selenium` plus a browser/driver pair.
+- Internal conversion uses `scale_factor = dpi / 96`.
+
+## Troubleshooting
 
 If the plot doesn't show up the first time (sometimes happens in Jupyter Notebooks), try calling the following first:
 
@@ -80,3 +105,7 @@ from bokeh.io import output_notebook
 
 output_notebook()
 ```
+
+## Change History
+
+See `CHANGELOG.md` for modification history in this fork.

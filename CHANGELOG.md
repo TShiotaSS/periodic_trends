@@ -2,6 +2,47 @@
 
 All notable changes in this fork are documented in this file.
 
+## [0.2.19] - 2026-02-13
+
+### Changed
+
+- Updated `--all-black-text` behavior in `xyz_to_periodic_table.py` so
+  no-data element labels remain gray (`#7A7A7A`) while included elements are
+  rendered in black.
+- Updated `README.md` wording for `--all-black-text`.
+
+## [0.2.18] - 2026-02-13
+
+### Changed
+
+- Updated `xyz_to_periodic_table.py` text-color logic so elements not included in
+  the current dataset are rendered in gray text.
+- Updated `README.md` notes for no-data text coloring.
+
+## [0.2.17] - 2026-02-13
+
+### Added
+
+- Added `--blank-color` option to `xyz_to_periodic_table.py` to customize the
+  fill color of elements without data.
+
+### Changed
+
+- Updated `README.md` examples and argument docs for `--blank-color`.
+
+## [0.2.16] - 2026-02-13
+
+### Added
+
+- Added `--highlight-elements` option to `xyz_to_periodic_table.py` to draw
+  fluorescent-green borders around selected element symbols.
+
+### Changed
+
+- Updated border-rendering logic so `--exclude-elements` (white fill + black border)
+  and `--highlight-elements` can be combined.
+- Updated `README.md` examples and argument docs for `--highlight-elements`.
+
 ## [0.2.15] - 2026-02-13
 
 ### Added

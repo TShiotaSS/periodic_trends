@@ -9,9 +9,11 @@ Examples:
   python xyz_to_periodic_table.py input.xyz output.html --fraction --log-fraction
   python xyz_to_periodic_table.py traj.xyz output.png --frame all --dpi 300
   python xyz_to_periodic_table.py traj.xyz output.png --cmap viridis
+  python xyz_to_periodic_table.py traj.xyz output.html --blank-color "#e8f0fe"
   python xyz_to_periodic_table.py traj.xyz output.html --color-min 0 --color-max 20
   python xyz_to_periodic_table.py traj.xyz output.html --print-data
   python xyz_to_periodic_table.py traj.xyz output.html --all-black-text
+  python xyz_to_periodic_table.py traj.xyz output.html --highlight-elements Fe O
   python xyz_to_periodic_table.py traj.extxyz output.png --frame all --unique-structure
   python xyz_to_periodic_table.py traj.extxyz output.html --log-scale
   python xyz_to_periodic_table.py traj.extxyz output.html --exclude-elements H O
@@ -37,6 +39,7 @@ from ase.io import read
 from bokeh.io import output_file, save
 from bokeh.io.export import export_png
 from matplotlib import colormaps
+from matplotlib.colors import to_hex
 from periodic_trends import plotter
 
 
@@ -49,7 +52,7 @@ def parse_frame_option(frame_option: str) -> str | int:
         raise ValueError("--frame must be an integer or 'all'.") from exc
 
 
-def parse_exclude_elements(raw_values: list[str] | None) -> list[str]:
+def parse_element_symbols(raw_values: list[str] | None) -> list[str]:
     if not raw_values:
         return []
 
@@ -66,6 +69,14 @@ def parse_exclude_elements(raw_values: list[str] | None) -> list[str]:
             seen.add(normalized)
             parsed.append(normalized)
     return parsed
+
+
+def parse_exclude_elements(raw_values: list[str] | None) -> list[str]:
+    return parse_element_symbols(raw_values)
+
+
+def parse_highlight_elements(raw_values: list[str] | None) -> list[str]:
+    return parse_element_symbols(raw_values)
 
 
 def normalize_element_symbol(symbol: str) -> str:
@@ -90,6 +101,20 @@ def resolve_cmap(cmap_name: str):
         raise ValueError(
             f"Unknown colormap for --cmap: {normalized}. "
             "Try common options like: plasma, viridis, inferno, magma, cividis."
+        ) from exc
+
+
+def resolve_color(color_value: str, option_name: str) -> str:
+    normalized = color_value.strip()
+    if not normalized:
+        raise ValueError(f"{option_name} must be a non-empty color.")
+
+    try:
+        return to_hex(normalized)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid color for {option_name}: {color_value}. "
+            "Use a valid matplotlib/CSS color (for example: #c4c4c4, #ff00aa, lightgray)."
         ) from exc
 
 
@@ -288,7 +313,9 @@ def export_periodic_plot(
     dpi: int,
     log_scale: bool,
     exclude_elements: list[str],
+    highlight_elements: list[str],
     cmap,
+    blank_color: str,
     print_data: bool,
     all_black_text: bool,
     color_min: float | None,
@@ -297,6 +324,9 @@ def export_periodic_plot(
     cbar_title: str,
     float_decimals: int,
 ) -> None:
+    included_symbols = set(df["Element"].astype(str).tolist())
+    no_data_text_color = "#7A7A7A"
+
     def apply_colorbar_title_style(fig) -> None:
         colorbar_title_size = "16pt"
         for layout_name in ("left", "right", "above", "below", "center"):
@@ -347,11 +377,24 @@ def export_periodic_plot(
             if source is None:
                 continue
             if "sym" in source.data and "type_color" in source.data:
+                symbols = list(source.data["sym"])
                 if force_black_text:
-                    source.data["text_color"] = ["#000000"] * len(source.data["sym"])
+                    text_colors = []
+                    for sym in symbols:
+                        if sym not in included_symbols:
+                            text_colors.append(no_data_text_color)
+                        else:
+                            text_colors.append("#000000")
+                    source.data["text_color"] = text_colors
                 else:
                     fill_colors = list(source.data["type_color"])
-                    source.data["text_color"] = [text_color_for_fill(c) for c in fill_colors]
+                    text_colors = []
+                    for sym, fill_color in zip(symbols, fill_colors):
+                        if sym not in included_symbols:
+                            text_colors.append(no_data_text_color)
+                        else:
+                            text_colors.append(text_color_for_fill(fill_color))
+                    source.data["text_color"] = text_colors
                 target_sources.append(source)
 
         if not target_sources:
@@ -389,11 +432,14 @@ def export_periodic_plot(
                     cleaned.append(value)
             source.data["data_text"] = cleaned
 
-    def apply_excluded_borders(fig, excluded: list[str]) -> None:
-        if not excluded:
+    def apply_element_borders(
+        fig, excluded: list[str], highlighted: list[str]
+    ) -> None:
+        if not excluded and not highlighted:
             return
 
         excluded_set = set(excluded)
+        highlighted_set = set(highlighted)
         for renderer in fig.renderers:
             source = getattr(renderer, "data_source", None)
             glyph = getattr(renderer, "glyph", None)
@@ -403,14 +449,30 @@ def export_periodic_plot(
                 continue
 
             symbols = list(source.data["sym"])
-            line_colors = ["#000000"] * len(symbols)
-            line_alphas = [1.0 if sym in excluded_set else 0.0 for sym in symbols]
+            line_colors = []
+            line_alphas = []
+            line_widths = []
+            for sym in symbols:
+                if sym in highlighted_set:
+                    # Fluorescent green for explicit highlights.
+                    line_colors.append("#39FF14")
+                    line_alphas.append(1.0)
+                    line_widths.append(2.25)
+                elif sym in excluded_set:
+                    line_colors.append("#000000")
+                    line_alphas.append(1.0)
+                    line_widths.append(1.25)
+                else:
+                    line_colors.append("#000000")
+                    line_alphas.append(0.0)
+                    line_widths.append(0.0)
 
             source.data["line_color"] = line_colors
             source.data["line_alpha"] = line_alphas
+            source.data["line_width"] = line_widths
             glyph.line_color = "line_color"
             glyph.line_alpha = "line_alpha"
-            glyph.line_width = 1.25
+            glyph.line_width = "line_width"
             return
 
     special_elements = exclude_elements if exclude_elements else None
@@ -427,12 +489,13 @@ def export_periodic_plot(
             float_decimals=float_decimals,
             color_min=color_min,
             color_max=color_max,
+            blank_color=blank_color,
             special_elements=special_elements,
             special_color="#FFFFFF",
             cbar_title=cbar_title,
             title=title,
         )
-        apply_excluded_borders(fig, exclude_elements)
+        apply_element_borders(fig, exclude_elements, highlight_elements)
         apply_adaptive_text_colors(fig, force_black_text=all_black_text)
         apply_colorbar_title_style(fig)
         hide_nan_data_labels(fig)
@@ -454,12 +517,13 @@ def export_periodic_plot(
         float_decimals=float_decimals,
         color_min=color_min,
         color_max=color_max,
+        blank_color=blank_color,
         special_elements=special_elements,
         special_color="#FFFFFF",
         cbar_title=cbar_title,
         title=title,
     )
-    apply_excluded_borders(fig, exclude_elements)
+    apply_element_borders(fig, exclude_elements, highlight_elements)
     apply_adaptive_text_colors(fig, force_black_text=all_black_text)
     apply_colorbar_title_style(fig)
     hide_nan_data_labels(fig)
@@ -546,6 +610,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--highlight-elements",
+        nargs="+",
+        default=None,
+        help=(
+            "Highlight element symbols with fluorescent green borders. "
+            "Examples: --highlight-elements Fe O or --highlight-elements Fe,O"
+        ),
+    )
+    parser.add_argument(
         "--print-data",
         action="store_true",
         help="Print element counts as text labels inside periodic-table cells.",
@@ -577,6 +650,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Matplotlib colormap name (default: plasma). Example: viridis, cividis, inferno.",
     )
     parser.add_argument(
+        "--blank-color",
+        default="#c4c4c4",
+        help=(
+            "Color for elements without data (default: #c4c4c4). "
+            "Accepts matplotlib/CSS color strings (for example: #e8f0fe, lightgray)."
+        ),
+    )
+    parser.add_argument(
         "--color-min",
         type=float,
         default=None,
@@ -599,7 +680,9 @@ def main() -> int:
             raise ValueError(f"Input file not found: {args.input_data}")
 
         exclude_elements = parse_exclude_elements(args.exclude_elements)
+        highlight_elements = parse_highlight_elements(args.highlight_elements)
         cmap = resolve_cmap(args.cmap)
+        blank_color = resolve_color(args.blank_color, "--blank-color")
         if args.log_fraction and not args.fraction:
             raise ValueError("--log-fraction requires --fraction.")
         if args.log_fraction and args.log_scale:
@@ -649,7 +732,9 @@ def main() -> int:
             dpi=args.dpi,
             log_scale=args.log_scale,
             exclude_elements=exclude_elements,
+            highlight_elements=highlight_elements,
             cmap=cmap,
+            blank_color=blank_color,
             print_data=args.print_data,
             all_black_text=args.all_black_text,
             color_min=args.color_min,
@@ -667,7 +752,9 @@ def main() -> int:
                 dpi=args.dpi,
                 log_scale=args.log_scale,
                 exclude_elements=exclude_elements,
+                highlight_elements=highlight_elements,
                 cmap=cmap,
+                blank_color=blank_color,
                 print_data=args.print_data,
                 all_black_text=args.all_black_text,
                 color_min=args.color_min,
@@ -699,6 +786,11 @@ def main() -> int:
             print("Visualization mode: Element fraction (count / max_count)")
         if exclude_elements:
             print(f"Excluded elements (white + black border): {', '.join(exclude_elements)}")
+        if highlight_elements:
+            print(
+                "Highlighted elements (fluorescent green border): "
+                f"{', '.join(highlight_elements)}"
+            )
 
         print("Element counts:")
         for element, n in sorted(

@@ -83,9 +83,11 @@ python xyz_to_periodic_table.py input_counts.csv output.html
 python xyz_to_periodic_table.py input.xyz output.html --fraction
 python xyz_to_periodic_table.py input.xyz output.html --fraction --log-fraction
 python xyz_to_periodic_table.py input.xyz output.png --cmap viridis
+python xyz_to_periodic_table.py input.xyz output.html --blank-color "#e8f0fe"
 python xyz_to_periodic_table.py input.xyz output.html --color-min 0 --color-max 20
 python xyz_to_periodic_table.py input.xyz output.html --print-data
 python xyz_to_periodic_table.py input.xyz output.html --all-black-text
+python xyz_to_periodic_table.py input.xyz output.html --highlight-elements Fe O
 python xyz_to_periodic_table.py input.xyz output.png --frame 0 --dpi 600
 python xyz_to_periodic_table.py input.extxyz output.png --frame all --unique-structure
 python xyz_to_periodic_table.py input.extxyz output.html --log-scale
@@ -100,12 +102,14 @@ Arguments:
 - `--unique-structure`: for multi-frame input, count only the first frame for each unique `info['structure_name']`
 - `--dpi`: PNG DPI (default: `300`)
 - `--cmap`: matplotlib colormap name (default: `plasma`)
+- `--blank-color`: fill color for elements without data (default: `#c4c4c4`)
 - `--color-min`: minimum value for colorbar range (default: data min)
 - `--color-max`: maximum value for colorbar range (default: data max)
 - `--log-scale`: use logarithmic scale for colorbar values
 - `--exclude-elements`: exclude symbols from counting and render those cells in white with a black border
+- `--highlight-elements`: draw fluorescent green borders around selected element symbols
 - `--print-data`: print element counts directly in each periodic-table cell
-- `--all-black-text`: render all text labels in black (disable adaptive text color switching)
+- `--all-black-text`: render included-element text labels in black (no-data labels stay gray)
 - `--fraction`: visualize normalized fraction (`count / max_count`) instead of raw count
 - `--log-fraction`: visualize `log10(element_fraction)` (requires `--fraction`)
 - `--title`: plot title (default: `Element Counts`)
@@ -118,14 +122,18 @@ Notes:
 - Internal conversion uses `scale_factor = dpi / 96`.
 - `--unique-structure` expects each frame to contain non-empty `info['structure_name']` metadata.
 - `--cmap` can use any matplotlib colormap name (for example: `plasma`, `viridis`, `inferno`, `cividis`).
+- `--blank-color` accepts valid matplotlib/CSS colors (for example: `#e8f0fe`, `lightgray`).
 - `--color-min` and `--color-max` let you align colorbar scales across multiple figures.
 - `--fraction` uses `element_fraction = element_count / max(element_count)`.
 - `--log-fraction` uses `log10(element_fraction)`.
 - `--log-scale` requires strictly positive values (element counts are positive by construction).
 - `--log-fraction` and `--log-scale` cannot be combined.
 - `--exclude-elements` accepts space-separated or comma-separated symbols (`H O` or `H,O`).
+- `--highlight-elements` accepts space-separated or comma-separated symbols (`Fe O` or `Fe,O`).
+- If an element is specified in both `--exclude-elements` and `--highlight-elements`, the cell stays white (excluded) and the border uses fluorescent green (highlight takes border priority).
 - Text color is automatically switched for readability (`black` on light cells, `white` on dark cells).
-- `--all-black-text` forces all labels to black.
+- Elements without data are shown with gray text to make non-included cells easier to distinguish.
+- `--all-black-text` forces included-element labels to black while keeping no-data labels gray.
 - The colorbar title is rendered in a larger non-italic font for readability.
 - With `--fraction`, the colorbar title changes to `Element fraction` (otherwise `Count`).
 - With `--fraction --log-fraction`, the colorbar title changes to `log(Element fraction)`.

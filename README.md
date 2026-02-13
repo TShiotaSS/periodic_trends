@@ -80,6 +80,7 @@ Basic examples:
 python xyz_to_periodic_table.py input.xyz output.png --dpi 300
 python xyz_to_periodic_table.py input.xyz output.html
 python xyz_to_periodic_table.py input.xyz output.png --frame 0 --dpi 600
+python xyz_to_periodic_table.py input.extxyz output.png --frame all --unique-structure
 ```
 
 Arguments:
@@ -87,6 +88,7 @@ Arguments:
 - `xyz`: input `.xyz` file path
 - `output`: output path (`.png` or `.html`)
 - `--frame`: frame index (`0`, `1`, ...) or `all` (default)
+- `--unique-structure`: for multi-frame input, count only the first frame for each unique `info['structure_name']`
 - `--dpi`: PNG DPI (default: `300`)
 - `--title`: plot title (default: `Element Counts`)
 - `--save-html`: optional additional HTML output path
@@ -95,6 +97,7 @@ Notes:
 
 - PNG export uses bokeh image export and requires `selenium` plus a browser/driver pair.
 - Internal conversion uses `scale_factor = dpi / 96`.
+- `--unique-structure` expects each frame to contain non-empty `info['structure_name']` metadata.
 
 ## Troubleshooting
 

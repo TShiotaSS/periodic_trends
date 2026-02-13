@@ -5,6 +5,7 @@ Examples:
   python xyz_to_periodic_table.py input.xyz output.png
   python xyz_to_periodic_table.py input.xyz output.html
   python xyz_to_periodic_table.py traj.xyz output.png --frame all --dpi 300
+  python xyz_to_periodic_table.py traj.extxyz output.png --frame all --unique-structure
 """
 
 from __future__ import annotations
@@ -36,7 +37,38 @@ def parse_frame_option(frame_option: str) -> str | int:
         raise ValueError("--frame must be an integer or 'all'.") from exc
 
 
-def element_counts_from_xyz(xyz_path: Path, frame_option: str) -> Counter[str]:
+def unique_frames_by_structure_name(frames: list, xyz_path: Path) -> list:
+    seen_structure_names: set[str] = set()
+    unique_frames: list = []
+    missing_name_indices: list[int] = []
+
+    for idx, atoms in enumerate(frames):
+        structure_name = atoms.info.get("structure_name")
+        if structure_name is None or str(structure_name).strip() == "":
+            missing_name_indices.append(idx)
+            continue
+
+        key = str(structure_name)
+        if key in seen_structure_names:
+            continue
+
+        seen_structure_names.add(key)
+        unique_frames.append(atoms)
+
+    if missing_name_indices:
+        preview = ", ".join(str(i) for i in missing_name_indices[:10])
+        suffix = " ..." if len(missing_name_indices) > 10 else ""
+        raise ValueError(
+            "--unique-structure requires non-empty info['structure_name'] in every frame. "
+            f"Missing at frame indices: {preview}{suffix} (file: {xyz_path})."
+        )
+
+    return unique_frames
+
+
+def element_counts_from_xyz(
+    xyz_path: Path, frame_option: str, unique_structure: bool = False
+) -> tuple[Counter[str], int, int]:
     index = parse_frame_option(frame_option)
     atoms_or_list = read(str(xyz_path), index=index)
 
@@ -45,6 +77,13 @@ def element_counts_from_xyz(xyz_path: Path, frame_option: str) -> Counter[str]:
     else:
         frames = [atoms_or_list]
 
+    total_frames = len(frames)
+
+    if unique_structure and total_frames > 1:
+        frames = unique_frames_by_structure_name(frames, xyz_path)
+
+    selected_frames = len(frames)
+
     counts: Counter[str] = Counter()
     for atoms in frames:
         counts.update(atoms.get_chemical_symbols())
@@ -52,7 +91,7 @@ def element_counts_from_xyz(xyz_path: Path, frame_option: str) -> Counter[str]:
     if not counts:
         raise ValueError(f"No atoms found in '{xyz_path}'.")
 
-    return counts
+    return counts, total_frames, selected_frames
 
 
 def counts_to_dataframe(counts: Counter[str]) -> pd.DataFrame:
@@ -121,6 +160,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Frame index for trajectory-like XYZ files (integer) or 'all' (default).",
     )
     parser.add_argument(
+        "--unique-structure",
+        action="store_true",
+        help=(
+            "For multi-frame inputs, count only the first frame per unique "
+            "info['structure_name']."
+        ),
+    )
+    parser.add_argument(
         "--title",
         default="Element Counts",
         help="Plot title (default: 'Element Counts').",
@@ -147,13 +194,23 @@ def main() -> int:
         if not args.xyz.exists():
             raise ValueError(f"Input file not found: {args.xyz}")
 
-        counts = element_counts_from_xyz(args.xyz, args.frame)
+        counts, total_frames, selected_frames = element_counts_from_xyz(
+            args.xyz,
+            args.frame,
+            unique_structure=args.unique_structure,
+        )
         df = counts_to_dataframe(counts)
 
         export_periodic_plot(df, args.output, title=args.title, dpi=args.dpi)
 
         if args.save_html is not None:
             export_periodic_plot(df, args.save_html, title=args.title, dpi=args.dpi)
+
+        if args.unique_structure:
+            print(
+                "Frames counted: "
+                f"{selected_frames}/{total_frames} (unique info['structure_name'])"
+            )
 
         print("Element counts:")
         for element, n in sorted(

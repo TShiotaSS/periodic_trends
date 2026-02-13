@@ -203,7 +203,7 @@ def plotter(
             color_list[element_index] = to_hex(color_scale[i])  # type: ignore
 
     if special_elements:
-        for k, v in elements["symbol"].iteritems():
+        for k, v in elements["symbol"].items():
             if v in special_elements:
                 color_list[k] = special_color
 
@@ -289,6 +289,10 @@ def plotter(
         color_mapper=color_mapper,
         ticker=BasicTicker(desired_num_ticks=cbar_ticks),
         border_line_color=None,
+        border_line_width=0,
+        bar_line_color=None,
+        bar_line_width=0,
+        background_fill_alpha=0.0,
         label_standoff=cbar_standoff,
         location=(cbar_x, cbar_y),
         orientation="vertical",

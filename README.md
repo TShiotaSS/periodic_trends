@@ -72,32 +72,67 @@ test = plotter(df, "Element", "Ionization Energy", print_data=True, cmap=cm.summ
 
 ## XYZ Utility (Element Count)
 
-This fork includes `xyz_to_periodic_table.py`, a utility script that reads `.xyz` files with `ase`, counts elements, and visualizes the counts with `periodic_trends`.
+This fork includes `xyz_to_periodic_table.py`, a utility script that reads `.xyz/.extxyz` files with `ase` (or count CSV files), and visualizes element counts with `periodic_trends`.
 
 Basic examples:
 
 ```bash
 python xyz_to_periodic_table.py input.xyz output.png --dpi 300
 python xyz_to_periodic_table.py input.xyz output.html
+python xyz_to_periodic_table.py input_counts.csv output.html
+python xyz_to_periodic_table.py input.xyz output.html --fraction
+python xyz_to_periodic_table.py input.xyz output.html --fraction --log-fraction
+python xyz_to_periodic_table.py input.xyz output.png --cmap viridis
+python xyz_to_periodic_table.py input.xyz output.html --color-min 0 --color-max 20
+python xyz_to_periodic_table.py input.xyz output.html --print-data
+python xyz_to_periodic_table.py input.xyz output.html --all-black-text
 python xyz_to_periodic_table.py input.xyz output.png --frame 0 --dpi 600
 python xyz_to_periodic_table.py input.extxyz output.png --frame all --unique-structure
+python xyz_to_periodic_table.py input.extxyz output.html --log-scale
+python xyz_to_periodic_table.py input.extxyz output.html --exclude-elements H O
 ```
 
 Arguments:
 
-- `xyz`: input `.xyz` file path
+- `input_data`: input `.xyz/.extxyz` file, or `.csv` with `Element,element_count`
 - `output`: output path (`.png` or `.html`)
 - `--frame`: frame index (`0`, `1`, ...) or `all` (default)
 - `--unique-structure`: for multi-frame input, count only the first frame for each unique `info['structure_name']`
 - `--dpi`: PNG DPI (default: `300`)
+- `--cmap`: matplotlib colormap name (default: `plasma`)
+- `--color-min`: minimum value for colorbar range (default: data min)
+- `--color-max`: maximum value for colorbar range (default: data max)
+- `--log-scale`: use logarithmic scale for colorbar values
+- `--exclude-elements`: exclude symbols from counting and render those cells in white with a black border
+- `--print-data`: print element counts directly in each periodic-table cell
+- `--all-black-text`: render all text labels in black (disable adaptive text color switching)
+- `--fraction`: visualize normalized fraction (`count / max_count`) instead of raw count
+- `--log-fraction`: visualize `log10(element_fraction)` (requires `--fraction`)
 - `--title`: plot title (default: `Element Counts`)
 - `--save-html`: optional additional HTML output path
+- `--save-csv`: CSV output path override (default: `<output_stem>_counts.csv`, `<output_stem>_fraction.csv` with `--fraction`, `<output_stem>_fraction_log.csv` with `--fraction --log-fraction`)
 
 Notes:
 
 - PNG export uses bokeh image export and requires `selenium` plus a browser/driver pair.
 - Internal conversion uses `scale_factor = dpi / 96`.
 - `--unique-structure` expects each frame to contain non-empty `info['structure_name']` metadata.
+- `--cmap` can use any matplotlib colormap name (for example: `plasma`, `viridis`, `inferno`, `cividis`).
+- `--color-min` and `--color-max` let you align colorbar scales across multiple figures.
+- `--fraction` uses `element_fraction = element_count / max(element_count)`.
+- `--log-fraction` uses `log10(element_fraction)`.
+- `--log-scale` requires strictly positive values (element counts are positive by construction).
+- `--log-fraction` and `--log-scale` cannot be combined.
+- `--exclude-elements` accepts space-separated or comma-separated symbols (`H O` or `H,O`).
+- Text color is automatically switched for readability (`black` on light cells, `white` on dark cells).
+- `--all-black-text` forces all labels to black.
+- The colorbar title is rendered in a larger non-italic font for readability.
+- With `--fraction`, the colorbar title changes to `Element fraction` (otherwise `Count`).
+- With `--fraction --log-fraction`, the colorbar title changes to `log(Element fraction)`.
+- With `--print-data`, counts are rendered as integers (for example, `3` instead of `3.0`).
+- The script always prints frame summary, including total input frame count.
+- CSV output is enabled by default; counts/fractions are always written to CSV.
+- When input is CSV, the plot is generated directly from that CSV (`Element,element_count`).
 
 ## Troubleshooting
 
